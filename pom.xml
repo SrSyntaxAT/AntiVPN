@@ -24,7 +24,7 @@
         <easysql.version>1.3.5</easysql.version>
         <jsonweb.version>2.1.6</jsonweb.version>
         <sqlite.version>LATEST</sqlite.version>
-        <mysql.version>LATEST</mysql.version>
+        <mysql.version>8.0.16</mysql.version>
         <jedis.version>3.2.0</jedis.version>
         <rabbitmq.version>5.8.0</rabbitmq.version>
         <guava.version>29.0-jre</guava.version>
