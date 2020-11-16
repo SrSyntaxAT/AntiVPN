@@ -1,5 +1,9 @@
 package me.egg82.antivpn;
 
+import at.srsyntax.antivpn.command.BypassVPNCommand;
+import at.srsyntax.antivpn.database.Database;
+import at.srsyntax.antivpn.database.DatabaseConfig;
+import at.srsyntax.antivpn.listener.PermissionCheckListener;
 import co.aikar.commands.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.SetMultimap;
@@ -41,11 +45,16 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.Level;
 
 public class AntiVPN {
+
+    private static AntiVPN instance;
+
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     private ExecutorService workPool = Executors.newFixedThreadPool(1, new ThreadFactoryBuilder().setNameFormat("AntiVPN-%d").build());
@@ -62,6 +71,8 @@ public class AntiVPN {
 
     private CommandIssuer consoleCommandIssuer = null;
 
+    private Database database;
+
     public AntiVPN(Plugin plugin) { this.plugin = plugin; }
 
     public void onLoad() {
@@ -74,6 +85,7 @@ public class AntiVPN {
     }
 
     public void onEnable() {
+        instance = this;
         GameAnalyticsErrorHandler.open(ServerIDUtil.getID(new File(plugin.getDataFolder(), "stats-id.txt")), plugin.getDescription().getVersion(), plugin.getProxy().getVersion());
 
         commandManager = new BungeeCommandManager(plugin);
@@ -103,9 +115,30 @@ public class AntiVPN {
         );
 
         workPool.execute(this::checkUpdate);
+
+        try {
+            final DatabaseConfig databaseConfig = new DatabaseConfig().load(plugin);
+            this.database = new Database(databaseConfig.getUsername(), databaseConfig.getPassword(), databaseConfig.getDatabase(), databaseConfig.getHost(), databaseConfig.getPort());
+            this.database.connect();
+            final Statement statement = this.database.getConnection().createStatement();
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS ANTIVPNPERM (NAME VARCHAR(20))");
+            statement.close();
+        } catch (IOException | SQLException | InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        final PluginManager pluginManager = plugin.getProxy().getPluginManager();
+        pluginManager.registerListener(plugin, new PermissionCheckListener());
+        pluginManager.registerCommand(plugin, new BypassVPNCommand("bypassvpn"));
     }
 
     public void onDisable() {
+        try {
+            if (this.database.isConnected())
+                this.database.disconnect();
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
         workPool.shutdown();
         try {
             if (!workPool.awaitTermination(4L, TimeUnit.SECONDS)) {
@@ -526,5 +559,13 @@ public class AntiVPN {
             storageMessagingHandler = Optional.empty();
         }
         storageMessagingHandler.ifPresent(StorageMessagingHandler::close);
+    }
+
+    public static AntiVPN getInstance() {
+        return instance;
+    }
+
+    public Database getDatabase() {
+        return database;
     }
 }
