@@ -49,9 +49,10 @@ public class DatabaseConfig {
             plugin.getDataFolder().mkdirs();
 
         final File file = new File(plugin.getDataFolder(), "database.yml");
-        final Configuration configuration = YamlConfiguration.getProvider(YamlConfiguration.class).load(file);
+        final Configuration configuration;
 
         if (file.exists()) {
+            configuration = YamlConfiguration.getProvider(YamlConfiguration.class).load(file);
             return new DatabaseConfig(
                     configuration.getString("username"),
                     configuration.getString("password"),
@@ -64,11 +65,16 @@ public class DatabaseConfig {
             plugin.getLogger().severe("Create configuration...");
 
             file.createNewFile();
+
+            configuration = YamlConfiguration.getProvider(YamlConfiguration.class).load(file);
+
             configuration.set("username", "Gamster");
             configuration.set("password", "password");
             configuration.set("database", "anitvpn");
             configuration.set("host", "localhost");
             configuration.set("port", 3306);
+
+            YamlConfiguration.getProvider(YamlConfiguration.class).save(configuration, file);
 
             plugin.getLogger().severe("Please change the configuration!");
             Thread.sleep(5000);
